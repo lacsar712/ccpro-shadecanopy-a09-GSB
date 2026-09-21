@@ -5,7 +5,14 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from core.models import (
+    ClimateLog,
+    Greenhouse,
+    IrrigationCycle,
+    PalletLine,
+    ShipmentPallet,
+    Zone,
+)
 
 User = get_user_model()
 
@@ -162,9 +169,53 @@ class Command(BaseCommand):
             ]
         )
 
+        # 发运托盘：TP-001 / TP-002 在两个温室同时存在，验证撞号不串数据。
+        # g1/TP-001 两行合计 6.000kg（可发运）；g1/TP-002 仅一行（不可发）；
+        # g2/TP-001 两行合计 4.500kg（不可发）；g2/TP-002 已发运（禁止再装入）。
+        p1 = ShipmentPallet.objects.create(
+            greenhouse=g1, pallet_no="TP-001", packed_at=now - timedelta(hours=5)
+        )
+        PalletLine.objects.bulk_create(
+            [
+                PalletLine(pallet=p1, zone=z1, kg=Decimal("3.250"), grade=PalletLine.GRADE_A),
+                PalletLine(pallet=p1, zone=z2, kg=Decimal("2.750"), grade=PalletLine.GRADE_B),
+            ]
+        )
+
+        p2 = ShipmentPallet.objects.create(
+            greenhouse=g1, pallet_no="TP-002", packed_at=now - timedelta(hours=3)
+        )
+        PalletLine.objects.create(
+            pallet=p2, zone=z1, kg=Decimal("4.500"), grade=PalletLine.GRADE_A
+        )
+
+        p3 = ShipmentPallet.objects.create(
+            greenhouse=g2, pallet_no="TP-001", packed_at=now - timedelta(hours=2)
+        )
+        PalletLine.objects.bulk_create(
+            [
+                PalletLine(pallet=p3, zone=z4, kg=Decimal("2.000"), grade=PalletLine.GRADE_A),
+                PalletLine(pallet=p3, zone=z5, kg=Decimal("2.500"), grade=PalletLine.GRADE_B),
+            ]
+        )
+
+        p4 = ShipmentPallet.objects.create(
+            greenhouse=g2,
+            pallet_no="TP-002",
+            packed_at=now - timedelta(days=1),
+            shipped_at=now - timedelta(hours=1),
+        )
+        PalletLine.objects.bulk_create(
+            [
+                PalletLine(pallet=p4, zone=z4, kg=Decimal("3.000"), grade=PalletLine.GRADE_A),
+                PalletLine(pallet=p4, zone=z5, kg=Decimal("3.500"), grade=PalletLine.GRADE_A),
+            ]
+        )
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"种子完成：温室 {Greenhouse.objects.count()}，分区 {Zone.objects.count()}，"
-                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}"
+                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}，"
+                f"托盘 {ShipmentPallet.objects.count()}，装盘行 {PalletLine.objects.count()}"
             )
         )

@@ -1,6 +1,6 @@
 # ShadeCanopy-01 · 分区气候日志与轮灌计划
 
-温室「分区气候日志与轮灌计划」全栈种子项目（非考勤 OA、非库存）。
+温室「分区气候日志与轮灌计划」全栈种子项目（非考勤 OA、非库存），含鲜品发运托盘模块。
 
 ## 技术栈
 
@@ -49,7 +49,11 @@ docker compose down
 3. **Zone**：greenhouseId / zoneCode / cropName / status(`idle|growing|fallow`)；同温室 zoneCode 唯一
 4. **ClimateLog**：zoneId / recordedAt / tempC / humidityPct / parUmol / co2Ppm；**humidityPct ∈ [20, 100]**
 5. **IrrigationCycle**：zoneId / startAt / durationMin / waterLiters / status(`scheduled|running|done|skipped`)
-6. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数 → `GET /api/dashboard/`
+6. **ShipmentPallet**：greenhouseId / palletNo / packedAt / shippedAt(可空)；**同温室 palletNo 唯一**，跨温室允许同号且数据互不串扰；shippedAt 只能经发运接口写入
+7. **PalletLine**：palletId / zoneId / kg(三位小数) / grade(`甲|乙`)；zone 必须属于托盘所在温室；**已发运托盘禁止再装入、改动或移除行**
+8. **发运**：`POST /api/pallets/{id}/ship/` —— 装盘行 ≥ 2 且公斤合计 > 5 才置 shippedAt，否则 **409** 且 shippedAt 保持空；已发运再发运同样 409
+9. **按温室汇总**：`GET /api/pallets/summary/` 返回各温室 palletCount / shippedCount / totalKg，totalKg 与明细行加总的绝对差 ≤ 0.001
+10. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数 → `GET /api/dashboard/`
 
 ## API 一览
 
@@ -62,9 +66,15 @@ docker compose down
 | CRUD | `/api/zones/?greenhouseId=&status=` |
 | CRUD | `/api/climate-logs/?zoneId=` |
 | CRUD | `/api/irrigation-cycles/?zoneId=&status=` |
+| CRUD | `/api/pallets/?greenhouseId=&shipped=` |
+| POST | `/api/pallets/{id}/ship/` |
+| GET | `/api/pallets/summary/` |
+| CRUD | `/api/pallet-lines/?palletId=&zoneId=` |
 | GET | `/api/dashboard/` |
 
-字段对外使用 camelCase（如 `areaM2`、`zoneCode`、`humidityPct`）。
+字段对外使用 camelCase（如 `areaM2`、`zoneCode`、`humidityPct`、`palletNo`、`packedAt`）。
+
+种子数据含四个托盘：东坡一号棚 `TP-001`（两行 6.000kg，可发运）、`TP-002`（仅一行，不可发）；西篱二号棚 `TP-001`（两行 4.500kg，不可发）、`TP-002`（已发运）。两温室刻意复用相同托盘号，验证撞号不串数据。
 
 ## 本地开发（可选）
 
@@ -104,7 +114,7 @@ ShadeCanopy-01/
 │   ├── manage.py
 │   ├── config/            # settings / urls
 │   ├── accounts/          # 自定义 User + role
-│   └── core/              # 温室/分区/气候/轮灌 + seed_data
+│   └── core/              # 温室/分区/气候/轮灌/发运托盘 + seed_data
 └── frontend/
     ├── Dockerfile
     ├── nginx.conf         # 静态资源 + /api 反代

@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from .models import (
+    ClimateLog,
+    Greenhouse,
+    IrrigationCycle,
+    PalletLine,
+    ShipmentPallet,
+    Zone,
+)
 
 
 @admin.register(Greenhouse)
@@ -26,3 +33,22 @@ class ClimateLogAdmin(admin.ModelAdmin):
 class IrrigationCycleAdmin(admin.ModelAdmin):
     list_display = ("id", "zone", "start_at", "duration_min", "water_liters", "status")
     list_filter = ("status", "zone")
+
+
+class PalletLineInline(admin.TabularInline):
+    model = PalletLine
+    extra = 0
+
+
+@admin.register(ShipmentPallet)
+class ShipmentPalletAdmin(admin.ModelAdmin):
+    list_display = ("id", "greenhouse", "pallet_no", "packed_at", "shipped_at")
+    list_filter = ("greenhouse",)
+    search_fields = ("pallet_no",)
+    inlines = [PalletLineInline]
+
+
+@admin.register(PalletLine)
+class PalletLineAdmin(admin.ModelAdmin):
+    list_display = ("id", "pallet", "zone", "kg", "grade")
+    list_filter = ("grade", "pallet__greenhouse")
