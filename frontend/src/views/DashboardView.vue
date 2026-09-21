@@ -51,8 +51,9 @@ onMounted(async () => {
     <div class="panel" style="margin-top: 18px">
       <h3 style="margin-top:0;color:var(--earth-deep)">业务说明</h3>
       <p style="color:var(--muted);margin:0;line-height:1.7">
-        本系统面向温室「分区气候日志与轮灌计划」，不涉及考勤 OA 或库存出入库。
-        可在侧栏进入温室、分区、气候与轮灌模块进行 CRUD 操作。
+        本系统面向温室「分区气候日志与轮灌计划」，并支持鲜品发运托盘（按温室汇总托盘数与公斤），
+        不涉及考勤 OA 或库存出入库。
+        可在侧栏进入温室、分区、气候、轮灌与发运托盘模块进行 CRUD 操作。
       </p>
     </div>
   </div>

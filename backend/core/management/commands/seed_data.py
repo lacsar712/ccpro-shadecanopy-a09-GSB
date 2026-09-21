@@ -5,7 +5,14 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from core.models import (
+    ClimateLog,
+    Greenhouse,
+    IrrigationCycle,
+    PalletLine,
+    ShipmentPallet,
+    Zone,
+)
 
 User = get_user_model()
 
@@ -162,9 +169,49 @@ class Command(BaseCommand):
             ]
         )
 
+        # 鲜品发运托盘：可发 / 不可发 / 已发运 各态齐备；
+        # g1 与 g2 同时使用托盘号 TP-001/TP-002，验证跨温室撞号不串数据。
+        p1 = ShipmentPallet.objects.create(
+            greenhouse=g1, pallet_no="TP-001", packed_at=now - timedelta(hours=5)
+        )
+        p2 = ShipmentPallet.objects.create(
+            greenhouse=g1, pallet_no="TP-002", packed_at=now - timedelta(hours=4)
+        )
+        p3 = ShipmentPallet.objects.create(
+            greenhouse=g1, pallet_no="TP-003", packed_at=now - timedelta(hours=3)
+        )
+        p4 = ShipmentPallet.objects.create(
+            greenhouse=g2, pallet_no="TP-001", packed_at=now - timedelta(hours=2)
+        )
+        p5 = ShipmentPallet.objects.create(
+            greenhouse=g2,
+            pallet_no="TP-002",
+            packed_at=now - timedelta(days=1, hours=6),
+            shipped_at=now - timedelta(days=1),
+        )
+        PalletLine.objects.bulk_create(
+            [
+                # p1：2 行合计 5.700 > 5，可发运
+                PalletLine(pallet=p1, zone=z1, kg=Decimal("3.200"), grade=PalletLine.GRADE_JIA),
+                PalletLine(pallet=p1, zone=z2, kg=Decimal("2.500"), grade=PalletLine.GRADE_YI),
+                # p2：仅 1 行，不可发运
+                PalletLine(pallet=p2, zone=z1, kg=Decimal("4.000"), grade=PalletLine.GRADE_JIA),
+                # p3：2 行但合计 4.500 ≤ 5，不可发运
+                PalletLine(pallet=p3, zone=z2, kg=Decimal("2.000"), grade=PalletLine.GRADE_YI),
+                PalletLine(pallet=p3, zone=z3, kg=Decimal("2.500"), grade=PalletLine.GRADE_JIA),
+                # p4：g2 的 TP-001（与 g1 撞号），2 行合计 6.500，可发运
+                PalletLine(pallet=p4, zone=z4, kg=Decimal("3.000"), grade=PalletLine.GRADE_JIA),
+                PalletLine(pallet=p4, zone=z5, kg=Decimal("3.500"), grade=PalletLine.GRADE_YI),
+                # p5：已发运，禁止再装入
+                PalletLine(pallet=p5, zone=z4, kg=Decimal("2.800"), grade=PalletLine.GRADE_JIA),
+                PalletLine(pallet=p5, zone=z5, kg=Decimal("3.300"), grade=PalletLine.GRADE_YI),
+            ]
+        )
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"种子完成：温室 {Greenhouse.objects.count()}，分区 {Zone.objects.count()}，"
-                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}"
+                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}，"
+                f"托盘 {ShipmentPallet.objects.count()}，装盘行 {PalletLine.objects.count()}"
             )
         )

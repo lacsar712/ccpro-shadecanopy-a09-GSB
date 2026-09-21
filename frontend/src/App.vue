@@ -22,7 +22,7 @@ function logout() {
     <aside class="sidebar">
       <div class="brand">
         ShadeCanopy
-        <small>分区气候日志 · 轮灌计划</small>
+        <small>分区气候日志 · 轮灌计划 · 发运托盘</small>
       </div>
       <nav class="nav">
         <router-link to="/">总览看板</router-link>
@@ -30,6 +30,7 @@ function logout() {
         <router-link to="/zones">分区管理</router-link>
         <router-link to="/climate-logs">气候日志</router-link>
         <router-link to="/irrigation">轮灌计划</router-link>
+        <router-link to="/pallets">发运托盘</router-link>
       </nav>
       <div class="sidebar-foot">
         <div>{{ auth.user?.username }} · {{ auth.user?.role }}</div>

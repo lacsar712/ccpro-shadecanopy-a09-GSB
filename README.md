@@ -1,6 +1,6 @@
 # ShadeCanopy-01 · 分区气候日志与轮灌计划
 
-温室「分区气候日志与轮灌计划」全栈种子项目（非考勤 OA、非库存）。
+温室「分区气候日志与轮灌计划」全栈种子项目（非考勤 OA、非库存），含鲜品发运托盘模块。
 
 ## 技术栈
 
@@ -25,7 +25,7 @@
 | `admin` | `123456` | admin（管理员，可进 Django Admin） |
 | `grower` | `123456` | grower（种植员） |
 
-启动时 `entrypoint.sh` 会执行 `migrate` + `seed_data` 自动写入账号与示例业务数据。
+启动时 `entrypoint.sh` 会执行 `migrate` + `seed_data` 自动写入账号与示例业务数据。种子托盘覆盖：可发运（≥2 行且公斤 > 5）、不可发运（行数不足 / 公斤合计 ≤ 5）、已发运三种形态；两个温室使用相同托盘号（TP-001/TP-002）以验证跨温室撞号不串数据。
 
 ## 快速启动
 
@@ -49,7 +49,14 @@ docker compose down
 3. **Zone**：greenhouseId / zoneCode / cropName / status(`idle|growing|fallow`)；同温室 zoneCode 唯一
 4. **ClimateLog**：zoneId / recordedAt / tempC / humidityPct / parUmol / co2Ppm；**humidityPct ∈ [20, 100]**
 5. **IrrigationCycle**：zoneId / startAt / durationMin / waterLiters / status(`scheduled|running|done|skipped`)
-6. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数 → `GET /api/dashboard/`
+6. **ShipmentPallet**：greenhouseId / palletNo / packedAt / shippedAt(可空)；**同温室 palletNo 唯一**，跨温室撞号互不串数据
+7. **PalletLine**：palletId / zoneId / kg / grade(`甲|乙`)；zone 必须属于托盘所在温室，且只能装入**未发运**托盘
+8. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数 → `GET /api/dashboard/`
+
+### 发运规则
+
+- `POST /api/pallets/{id}/ship/`：托盘**至少 2 行**且**公斤合计 > 5** 才能发运，否则返回 `409` 且 `shippedAt` 保持为空；发运成功后写入 `shippedAt`，已发运托盘禁止再装入或改行。
+- `GET /api/pallets/summary/`：按温室返回 `palletCount` 与 `totalKg`；`totalKg` 与该温室全部装盘行公斤加总的绝对差 ≤ 0.001。
 
 ## API 一览
 
@@ -62,6 +69,10 @@ docker compose down
 | CRUD | `/api/zones/?greenhouseId=&status=` |
 | CRUD | `/api/climate-logs/?zoneId=` |
 | CRUD | `/api/irrigation-cycles/?zoneId=&status=` |
+| CRUD | `/api/pallets/?greenhouseId=&shipped=` |
+| POST | `/api/pallets/{id}/ship/` |
+| GET | `/api/pallets/summary/` |
+| CRUD | `/api/pallet-lines/?palletId=&greenhouseId=` |
 | GET | `/api/dashboard/` |
 
 字段对外使用 camelCase（如 `areaM2`、`zoneCode`、`humidityPct`）。
@@ -104,7 +115,7 @@ ShadeCanopy-01/
 │   ├── manage.py
 │   ├── config/            # settings / urls
 │   ├── accounts/          # 自定义 User + role
-│   └── core/              # 温室/分区/气候/轮灌 + seed_data
+│   └── core/              # 温室/分区/气候/轮灌/发运托盘 + seed_data
 └── frontend/
     ├── Dockerfile
     ├── nginx.conf         # 静态资源 + /api 反代
